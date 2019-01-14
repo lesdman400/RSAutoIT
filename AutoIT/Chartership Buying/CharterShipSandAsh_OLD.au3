@@ -1,0 +1,281 @@
+#include <MsgBoxConstants.au3>
+#include <ImageSearch.au3>
+#include <GDIPlus.au3>
+
+; Press Esc to terminate script, Pause/Break to "pause"
+Global $isRunning = False
+Global $g_bPaused = True
+
+Global $bankLampColor = 13145624
+Global $bankerColor = 11412501 ;TODO reopen bank by bankers shirt color
+Global $depositBagColor = 4250693
+Global $menuColorBlack = 0
+Global $menuColorYellow = 16776960
+Global $menuColorBlue = 65535
+Global $menuColorBrown = 6116423
+Global $menuColorWhite = 16777215
+Global $worldCounter = 1
+Global $traderColor[2] = [1133205,1909827];colors are blue
+
+HotKeySet("{PAUSE}", "TogglePause")
+HotKeySet("{NUMPAD0}", "Terminate")
+HotKeySet("+!d", "ShowMessage") ; Shift-Alt-d
+
+HotKeySet("{NUMPAD1}", "GetColor")
+
+HotKeySet("{NUMPAD6}", "ExecuteSeries")
+HotKeySet("{NUMPAD7}", "Bank")
+HotKeySet("{NUMPAD8}", "ChangeWorld")
+HotKeySet("{NUMPAD9}", "Buy")
+
+While 1
+   Sleep(5000)
+WEnd
+
+Func TogglePause()
+    $g_bPaused = Not $g_bPaused
+    While $g_bPaused
+        Sleep(100)
+        ToolTip('Script is "Paused"', 0, 0)
+	 WEnd
+    ToolTip("")
+EndFunc   ;==>TogglePause
+
+Func Terminate()
+    Exit
+EndFunc   ;==>Terminate
+
+Func ExecuteSeries()
+   While True
+	  If CheckForFullInv() = True Then
+		 Bank()
+	  Else
+		 ChangeWorld()
+	  EndIf
+   WEnd
+EndFunc
+
+Func Buy()
+   WriteToConsole("-----Starting Buy() Function")
+   if $isRunning = False Then
+	  $isRunning = True
+	  WriteToConsole("Executing Buy() Function")
+	  WriteToConsole("Opening bag")
+	  Send("{F1}")
+	  ClickTrader()
+	  ClickItems()
+	  $isRunning = False
+   Else
+	  WriteToConsole("Please wait for script to finish executing before calling the Buy() function again")
+   EndIf
+   WriteToConsole("-----Ending Buy() Function")
+   Sleep(1000)
+EndFunc
+
+Func ChangeWorld()
+   WriteToConsole("-----Starting ChangeWorld() Function")
+
+   $distanceBetweenEachWorld = 16
+   WriteToConsole("Opening world change menu")
+   Send("{F12}")
+   if $worldCounter > 12 Then
+	  $worldCounter = 0
+   EndIf
+   WriteToConsole("Selecting new world")
+   $menuToClick = (765 + ($distanceBetweenEachWorld * $worldCounter))
+   MouseClick("left", 1520, $menuToClick , 1, 20)
+   WriteToConsole("World changed")
+   $worldCounter = $worldCounter + 1
+
+   WriteToConsole("Waiting for world to load")
+   Do
+	  $aCoord = PixelSearch (1520-10, $menuToClick-5, 1520+10, $menuToClick+5, 1856020) ;Green Menu
+   Until IsArray($aCoord) = True
+   WriteToConsole("-----World loaded")
+   Send("{F1}")
+   ClickTrader()
+   ClickItems()
+EndFunc
+
+Func Bank()
+   WriteToConsole("-----Executing Bank() Function")
+   MoveTowardsBank()
+   BankItems()
+   ClickTrader()
+   ClickItems()
+   ChangeWorld()
+   WriteToConsole("-----Bank() Function finished executing")
+EndFunc
+
+Func ClickTrader()
+   WriteToConsole("-----Running ClickTrader() Function")
+
+   $isRunningClickTrader = True
+	if $isRunningClickTrader = True Then
+	  $aCoord = 0
+	  Do
+		 $aCoord = PixelSearch (265,514,1600,600,$traderColor[Random(0,1,1)])
+		 if IsArray($aCoord) = True Then
+			WriteToConsole("Trader Found: " & $aCoord[0] & "," & $aCoord[1] & ", Opening rightclick menu")
+			MouseClick("right", $aCoord[0], $aCoord[1], 1, 0)
+
+			If (IsArray(PixelSearch ($aCoord[0]-80,$aCoord[1],$aCoord[0]+80,$aCoord[1]+106,$menuColorBlack)) = False) _
+				  And (IsArray(PixelSearch ($aCoord[0]-10,$aCoord[1],$aCoord[0]+10,$aCoord[1]+25,$menuColorYellow)) = False) _
+				  And (IsArray(PixelSearch ($aCoord[0]-80,$aCoord[1],$aCoord[0]+80,$aCoord[1]+106,$menuColorWhite)) = False) _
+				  And (IsArray(PixelSearch ($aCoord[0]-80,$aCoord[1],$aCoord[0]+80,$aCoord[1]+106,$menuColorBrown)) = False) Then
+			   Sleep(500)
+			   WriteToConsole("Trader Menu not found")
+			   MouseMove($aCoord[0],$aCoord[1]-20)
+			   WriteToConsole("Searching for trader again")
+			   $aCoord = 0
+			EndIf
+		 EndIf
+	  Until (IsArray($aCoord) = True)
+	  WriteToConsole("Trader store opened")
+	  if IsArray($aCoord) then MouseClick("left", $aCoord[0], ($aCoord[1] + 47.15), 1, 10)
+   EndIf
+   WriteToConsole("-----ClickTrader() Function ended")
+   $isRunningClickTrader = False
+EndFunc
+
+Func ClickItems()
+   WriteToConsole("-----Running ClickItems() Function")
+
+   $isRunningClickItems = False
+   if $isRunningClickItems = False Then
+	  $isRunningClickItems = True
+	  $counter = 0
+	  WriteToConsole("Waiting for store gui to open")
+
+	Do
+		 $aCoord = PixelSearch ( 629, 449, 629, 449, 1621277) ;Slimebucket
+		 $bCoord = PixelSearch ( 723, 408, 723, 408, 6884743) ;Securitybook
+		 $cCoord = PixelSearch ( 632, 492, 492, 408, 12736024) ;TyrasHelmet
+		 $counter = $counter + 1
+	  Until (IsArray($aCoord) = True And IsArray($bCoord) = True And IsArray($cCoord) = True) Or $counter = 200
+
+	 If IsArray($aCoord) = False then
+		 WriteToConsole("Finding Trader again, store did not open")
+		 ClickTrader()
+		 Sleep(1000)
+	  EndIf
+
+	  If CheckForFullInv() = False Then
+		 WriteToConsole("Buying sand buckets from store")
+		 MouseClick("right", 725, 456, 1, 10)
+		 MouseClick("left", 725, (456 + 76), 1, 20)
+		 Sleep(500)
+	  EndIf
+
+	  If CheckForFullInv() = False Then
+		 WriteToConsole("Buying soda ash from store")
+		 MouseClick("right", 819, 456, 1, 10)
+		 MouseMove(819, (456 + 76), 20)
+		 Sleep(1000)
+		 MouseClick("left")
+	  EndIf
+	  CheckForFullInv()
+	  WriteToConsole("Closing store")
+	  Send("{ESC}")
+   EndIf
+   WriteToConsole("-----ClickItems() function ended")
+   $isRunningClickItems = False
+   Sleep(500)
+EndFunc
+
+Func MoveTowardsBank()
+   WriteToConsole("Running MoveTowardsBank() Function")
+
+   $aCoord=0
+   Do
+	  $aCoord = PixelSearch ( 6, 247, 458, 330, $bankLampColor)
+   Until IsArray($aCoord) = True
+   $xLocation = $aCoord[0]
+   If $xLocation > 390 then $xLocation = $xLocation - 15 ;Off set click location to avoid opening poll menu in bank
+
+   WriteToConsole("Right clicking to find bank menu")
+   MouseClick("right",$xLocation , $aCoord[1], 1, 10)
+   Sleep(500)
+   if IsArray(PixelSearch ($xLocation-10,$aCoord[1],$xLocation+10,$aCoord[1]+70,$menuColorBlue)) = False Then ;TODO search for banker shirt color
+		 WriteToConsole("Bank Menu not found")
+		 MoveTowardsBank()
+   EndIf
+   WriteToConsole("Opening Bank")
+   MouseClick("left", $xLocation, $aCoord[1]+25, 1, 10)
+EndFunc
+
+Func BankItems()
+   WriteToConsole("Running BankItems() Function")
+   $aCoord=0
+   Do
+	  $aCoord = PixelSearch ( 870, 813, 900, 842, $depositBagColor)
+   Until IsArray($aCoord) = True
+   sleep(500)
+   WriteToConsole("Depositing Items in bank")
+   MouseClick("left", 886, 828, 1, 20)
+   Sleep(500)
+   Send("{ESC}")
+   WriteToConsole("Moving to traders via minimap")
+   MouseClick("left", 1620, 174, 1, 20)
+EndFunc
+
+Func CheckForFullInv()
+   WriteToConsole("-----Running CheckForFullInv() function")
+   Send("{F1}")
+   Sleep(500)
+   If IsArray(PixelSearch ( 1593, 1593, 1594, 982, 12498100)) = True Then ;Sodaash
+	  WriteToConsole("Inventory Full")
+	  Return True
+   ElseIf IsArray(PixelSearch ( 1593, 975, 1593, 975, 9732948)) = True Then ;Bucket
+	  WriteToConsole("Inventory Full")
+	  Return True
+   EndIf
+   WriteToConsole("Inventory NOT Full")
+   WriteToConsole("-----CheckForFullInv() function ended")
+   Return False
+EndFunc
+
+Func WriteToConsole($var)
+   ConsoleWrite($var & @lf)
+EndFunc
+
+Func GetColor()
+      $mouselocation = MouseGetPos()
+         ConsoleWrite("Mouse Pos: " & $mouselocation[0] & "," & $mouselocation[1] & @LF )
+   $traderColor = PixelGetColor($mouselocation[0], $mouselocation[1])
+      ConsoleWrite("Color is: " & $traderColor & @LF )
+EndFunc
+
+Func SetSearchArea()
+	  if $traderArea[0][0] = 0 Then
+		 $mousePos =  MouseGetPos()
+		$traderArea[0][0] = $mousePos[0]
+		 $traderArea[0][1] = $mousePos[1]
+		 ConsoleWrite("$traderArea 1x: " & $traderArea[0][0] )
+		   ConsoleWrite("$traderArea 1y: " & $traderArea[0][1] & @LF )
+
+	  Elseif $traderArea[0][0] > 0 And $traderArea[1][0] = 0 Then
+			$mousePos =  MouseGetPos()
+		   $traderArea[1][0] = $mousePos[0]
+			$traderArea[1][1] = $mousePos[1]
+			   ConsoleWrite("$traderArea 2x: " & $traderArea[1][0] )
+			     ConsoleWrite("$traderArea 2y: " & $traderArea[1][1] & @LF )
+
+	  Elseif $buyArea[0][0] = 0 Then
+		 $mousePos =  MouseGetPos()
+		$buyArea[0][0] = $mousePos[0]
+		 $buyArea[0][1] = $mousePos[1]
+		 ConsoleWrite("$buyArea 1x: " & $buyArea[0][0] )
+		   ConsoleWrite("$buyArea 1y: " & $buyArea[0][1] & @LF )
+
+	  Elseif $buyArea[0][0] > 0 And $buyArea[1][0] = 0 Then
+			$mousePos =  MouseGetPos()
+		   $buyArea[1][0] = $mousePos[0]
+			$buyArea[1][1] = $mousePos[1]
+			   ConsoleWrite("$buyArea 2x: " & $buyArea[1][0] )
+			     ConsoleWrite("$buyArea 2y: " & $buyArea[1][1] & @LF )
+	  EndIf
+EndFunc
+
+
+
